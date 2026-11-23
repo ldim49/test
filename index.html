@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f2ea">
+  <meta name="description" content="Undercover — un jeu de bluff et de déduction à partager entre amis.">
+  <title>Undercover — Qui n'a pas le même mot ?</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script defer src="js/config.js"></script>
+  <script defer src="js/words.js"></script>
+  <script defer src="js/app.js"></script>
+</head>
+<body>
+  <div class="paper-grain" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Undercover, accueil"><span class="brand-mark">U</span><span>UNDERCOVER<small>LE JEU DU MOT CACHÉ</small></span></a>
+    <div class="top-actions"><span class="offline-tag"><i></i> JEU HORS-LIGNE</span><button class="icon-button" id="soundToggle" aria-label="Activer ou désactiver le son" title="Son">♫</button></div>
+  </header>
+  <main id="app" class="app-shell">
+    <section id="setupView" class="view setup-view">
+      <div class="intro-grid">
+        <div class="intro-copy">
+          <div class="eyebrow"><span class="eyebrow-line"></span> BLUFF • DÉDUCTION • AMITIÉ</div>
+          <h1>Un mot.<br><em>Un imposteur.</em></h1>
+          <p class="lede">Tout le monde connaît le mot… sauf quelqu’un. Trouvez qui bluffe avant qu’il ne vous trouve.</p>
+          <div class="howto"><span class="howto-no">01—03</span><span>Distribuez les mots</span><span class="howto-dot">·</span><span>Discutez</span><span class="howto-dot">·</span><span>Démasquez</span></div>
+        </div>
+        <div class="art-card" aria-label="Illustration de cartes de jeu"><div class="art-stamp">QUI<br>BLUFFE ?</div><div class="playing-card card-back"><span>U</span><b>?</b></div><div class="playing-card card-face"><small>VOTRE MOT</small><strong>secret</strong><i>✳</i></div><div class="art-caption">UNE PARTIE<br>SE JOUE EN 10 MIN</div></div>
+      </div>
+      <form id="setupForm" class="setup-form">
+        <div class="section-head"><div><span class="section-kicker">PRÉPARER LA PARTIE</span><h2>À vous de jouer.</h2></div><span class="step-count">01 <span>/ 02</span></span></div>
+        <div class="setup-grid">
+          <div class="field-card players-card">
+            <div class="field-heading"><span class="field-index">A</span><div><label for="playerCount">Les joueurs</label><small>De 3 à 20 personnes</small></div><div class="stepper"><button type="button" id="minusPlayers" aria-label="Retirer un joueur">−</button><output id="playerCountOutput">5</output><button type="button" id="plusPlayers" aria-label="Ajouter un joueur">+</button></div></div>
+            <div id="nameFields" class="name-fields" aria-live="polite"></div>
+          </div>
+          <div class="field-card settings-card">
+            <div class="field-heading"><span class="field-index">B</span><div><span class="field-label">Les règles</span><small>Personnalisez votre manche</small></div></div>
+            <label class="select-label" for="undercoverCount">Nombre d'undercover</label><select id="undercoverCount"></select>
+            <label class="select-label" for="themeSelect">Thématique des mots</label><select id="themeSelect"></select>
+            <label class="select-label" for="difficultySelect">Difficulté</label><select id="difficultySelect"><option value="facile">Facile — évident</option><option value="moyen" selected>Moyen — subtil</option><option value="difficile">Difficile — expert</option></select>
+          </div>
+        </div>
+        <div class="field-card play-options">
+          <div class="field-heading"><span class="field-index">C</span><div><span class="field-label">Le téléphone</span><small>Choisissez comment distribuer les rôles</small></div></div>
+          <div class="mode-options"><label class="mode-choice"><input type="radio" name="mode" value="shared" checked><span class="mode-icon">↻</span><span><b>Téléphone partagé</b><small>On se passe l'écran, à tour de rôle</small></span><i class="radio-dot"></i></label><label class="mode-choice"><input type="radio" name="mode" value="qr"><span class="mode-icon">▦</span><span><b>Un téléphone chacun</b><small>Rejoindre avec un QR code ou un lien</small></span><i class="radio-dot"></i></label></div>
+          <div class="timer-settings"><label><span>Durée de la manche <small>avant la fin du temps</small></span><span class="duration"><input id="roundMinutes" type="number" min="1" max="30" value="8" aria-label="Durée de la manche en minutes"> min</span></label><label><span>Phase de débat <small>avant le vote</small></span><span class="duration"><input id="debateMinutes" type="number" min="1" max="20" value="3" aria-label="Durée du débat en minutes"> min</span></label></div>
+        </div>
+        <div class="form-footer"><p><span>✳</span> Les rôles restent secrets. Promis.</p><button class="primary-button" type="submit">Lancer la partie <span>↗</span></button></div>
+      </form>
+    </section>
+
+    <section id="gameView" class="view game-view hidden" aria-live="polite"></section>
+    <footer class="site-footer"><span>UNDERCOVER <span class="footer-dot">•</span> ÉDITION SALON</span><span>FAIT POUR JOUER ENSEMBLE</span></footer>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
