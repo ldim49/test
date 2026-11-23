@@ -8,6 +8,24 @@ Jeu de bluff et de déduction autonome, en HTML/CSS/JavaScript vanilla. Aucune b
 2. Ouvrez `index.html` dans un navigateur récent (téléphone, tablette ou ordinateur).
 3. Choisissez le nombre de joueurs, les noms, le nombre d'undercover, le thème, la difficulté, le mode de distribution et les minuteurs.
 4. En mode téléphone partagé, passez l'appareil à chaque joueur. Pour voir son information, il maintient le doigt sur la carte ; celle-ci se masque au relâchement.
+5. Choisissez `Aléatoire` dans les thèmes pour varier les catégories à chaque partie ou à chaque tour.
+6. Réglez le nombre de tours de 1 à 5 pour enchaîner plusieurs manches.
+
+La page `cartes.html` affiche les cartes par thème et par difficulté. Depuis l'accueil, le bouton `Voir la bibliothèque des cartes` ouvre cette bibliothèque. Les cartes peuvent être filtrées avec les menus déroulants du haut.
+
+## Indices des undercover
+
+Chaque paire contient désormais un mot civil, un mot undercover et un indice sémantique :
+
+```js
+['chat', 'chien', 'canidé']
+```
+
+- Les civils voient `chat`.
+- Les undercover voient `canidé`, indice lié au mot undercover.
+- `themeHints` fournit un indice de repli pour les thèmes sans paire définie.
+
+Cet indice apparaît aussi dans les cartes privées, les liens individuels et les QR codes.
 
 Si le navigateur restreint certaines fonctions lorsqu'on ouvre un fichier directement, un serveur local est également possible depuis le dossier :
 
@@ -31,7 +49,8 @@ Modifiez `js/config.js` :
 - `minPlayers`, `maxPlayers`, `defaultPlayers` règlent la plage de joueurs.
 - `defaultRoundMinutes`, `defaultDebateMinutes` règlent les minuteries par défaut.
 - `maxUndercover` fixe le plafond configurable. Le jeu conserve au moins un civil et limite le nombre d'undercover à la moitié des joueurs (arrondi inférieur).
-- `wordPairs` fournit des paires suggérées par niveau : mot des civils puis mot des undercover. Les paires doivent exister dans la liste du thème/niveau retenu ; sinon le jeu tire deux mots de cette liste.
+- `wordPairs` fournit les paires suggérées par niveau : mot civil, mot undercover, puis indice sémantique.
+- `themeHints` associe un indice de repli à chaque thème.
 - `palette` regroupe les couleurs principales utilisées comme référence. Le thème CSS se modifie dans `css/style.css` via `:root`.
 
 ## Modifier et ajouter des mots

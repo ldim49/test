@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f2ea">
+  <title>Undercover — Bibliothèque des cartes</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script defer src="js/config.js"></script>
+  <script defer src="js/words.js"></script>
+  <script defer src="js/cards.js"></script>
+</head>
+<body>
+  <div class="paper-grain" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="Undercover, accueil"><span class="brand-mark">U</span><span>UNDERCOVER<small>LE JEU DU MOT CACHÉ</small></span></a>
+    <a class="cards-back" href="index.html">← Nouvelle partie</a>
+  </header>
+  <main class="app-shell cards-shell">
+    <section class="cards-header">
+      <div>
+        <span class="section-kicker">BIBLIOTHÈQUE</span>
+        <h1>Les cartes.<br><em>Chaque mot compte.</em></h1>
+      </div>
+      <div class="cards-controls">
+        <label for="themeFilter">Thème</label>
+        <select id="themeFilter"></select>
+        <label for="difficultyFilter">Difficulté</label>
+        <select id="difficultyFilter">
+          <option value="all">Toutes</option>
+          <option value="facile">Facile</option>
+          <option value="moyen">Moyen</option>
+          <option value="difficile">Difficile</option>
+        </select>
+      </div>
+    </section>
+    <p id="cardsCount" class="cards-count" aria-live="polite"></p>
+    <div id="cardsGrid" class="cards-grid"></div>
+  </main>
+</body>
+</html>

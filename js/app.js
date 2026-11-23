@@ -5,7 +5,7 @@
   const words = window.UndercoverWords;
   const $ = (s, root = document) => root.querySelector(s);
   const app = $('#app'), setupView = $('#setupView'), gameView = $('#gameView');
-  const state = { players: [], undercover: [], civilianWord: '', undercoverWord: '', theme: '', difficulty: '', mode: 'shared', revealIndex: 0, phase: 'setup', vote: '', timers: {}, intervals: {}, sound: true, roundSeconds: 0, debateSeconds: 0 };
+  const state = { players: [], undercover: [], civilianWord: '', undercoverWord: '', undercoverHint: '', theme: '', difficulty: '', mode: 'shared', revealIndex: 0, phase: 'setup', vote: '', timers: {}, intervals: {}, sound: true, roundSeconds: 0, debateSeconds: 0, round: 1, maxRounds: 1, themeChoice: '__random__' };
   let toastTimer;
 
   // Initialise la configuration avec les thèmes réellement présents dans la bibliothèque.
@@ -17,6 +17,7 @@
     document.documentElement.style.setProperty('--terra-dark', cfg.palette.terracottaDark);
     document.documentElement.style.setProperty('--cream', cfg.palette.cream);
     document.documentElement.style.setProperty('--paper', cfg.palette.paper);
+    $('#themeSelect').add(new Option('Aléatoire', '__random__'));
     Object.keys(words).forEach(theme => $('#themeSelect').add(new Option(theme, theme)));
     renderNameFields(); updateUndercoverOptions();
     $('#plusPlayers').addEventListener('click', () => setPlayerCount(playerCount() + 1));
@@ -52,27 +53,33 @@
     event.preventDefault();
     const names = [...document.querySelectorAll('.name-input')].map((el, i) => el.value.trim() || `Joueur ${i + 1}`);
     if (new Set(names.map(n => n.toLocaleLowerCase('fr'))).size !== names.length) { toast('Chaque joueur doit avoir un nom différent.'); return; }
-    const theme = $('#themeSelect').value, difficulty = $('#difficultySelect').value;
+    let theme = $('#themeSelect').value;
+    state.themeChoice = theme;
+    if (theme === '__random__') theme = pick(Object.keys(words));
+    const difficulty = $('#difficultySelect').value;
     const available = words[theme]?.[difficulty] || [];
     if (!available.length) { toast('Aucun mot pour cette combinaison.'); return; }
+    state.theme = theme;
     const pair = choosePair(difficulty, available);
     state.players = names.map((name, id) => ({ id, name, role: 'civil', word: pair.civilian }));
     state.undercover = shuffle(state.players).slice(0, Number($('#undercoverCount').value));
     state.undercover.forEach(p => { p.role = 'undercover'; p.word = pair.undercover; });
-    state.civilianWord = pair.civilian; state.undercoverWord = pair.undercover;
-    state.theme = theme; state.difficulty = difficulty; state.mode = $('input[name="mode"]:checked').value;
+    state.civilianWord = pair.civilian; state.undercoverWord = pair.undercover; state.undercoverHint = pair.hint;
+    state.difficulty = difficulty; state.mode = $('input[name="mode"]:checked').value;
     state.revealIndex = 0; state.phase = state.mode === 'shared' ? 'pass' : 'links'; state.vote = '';
     state.roundSeconds = clampMinutes($('#roundMinutes').value, 8) * 60;
     state.debateSeconds = clampMinutes($('#debateMinutes').value, 3) * 60;
+    state.round = 1;
+    state.maxRounds = Math.max(1, Math.min(5, Number($('#roundCount')?.value || 1)));
     clearTimers();
     if (state.mode === 'shared') renderPassScreen(); else renderLinksScreen();
   }
   function choosePair(difficulty, available) {
     const pairSet = cfg.wordPairs[difficulty] || [];
-    const usable = pairSet.filter(pair => pair.every(w => available.includes(w)));
-    if (usable.length) { const p = pick(usable); return { civilian: p[0], undercover: p[1] }; }
+    const usable = pairSet.filter(pair => pair.slice(0, 2).every(w => available.includes(w)));
+    if (usable.length) { const p = pick(usable); return { civilian: p[0], undercover: p[1], hint: p[2] || cfg.themeHints[state.theme] || 'mot apparenté' }; }
     const chosen = pick(available), others = available.filter(w => w !== chosen);
-    return { civilian: chosen, undercover: others.length ? pick(others) : chosen };
+    return { civilian: chosen, undercover: others.length ? pick(others) : chosen, hint: cfg.themeHints[state.theme] || 'mot apparenté' };
   }
   function showGame(html) { setupView.classList.add('hidden'); gameView.classList.remove('hidden'); gameView.innerHTML = html; gameView.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
   function gameTop(label = 'PARTIE EN COURS') { return `<div class="game-topline"><button class="game-back" type="button">← RÉGLAGES</button><span>${escapeHtml(state.theme || 'UNDERCOVER')} · ${escapeHtml(state.difficulty || '')}</span><span>${label}</span></div>`; }
@@ -80,7 +87,7 @@
     const p = state.players[state.revealIndex];
     showGame(`${gameTop('DISTRIBUTION DES RÔLES')}<section class="game-panel"><div class="game-kicker">JOUEUR ${state.revealIndex + 1} SUR ${state.players.length}</div><div class="pass-icon">↻</div><div class="game-title">Passez le téléphone</div><div class="game-subtitle">à la personne suivante, sans regarder l'écran.</div><div class="pass-name">${escapeHtml(p.name)}</div><div class="reveal-box" id="revealBox" role="button" tabindex="0" aria-label="Maintenir appuyé pour voir son rôle"><div class="reveal-content"><div class="reveal-prompt">MAINTENEZ POUR DÉCOUVRIR</div><div class="symbol">◉</div></div></div><p class="alert-note">Appuyez sans relâcher sur la carte pour révéler votre mot. Relâchez pour le masquer.</p><div class="progress-dots">${state.players.map((_, i) => `<i class="${i < state.revealIndex ? 'done' : ''}"></i>`).join('')}</div><button class="secondary-button" id="nextPlayer">${state.revealIndex === state.players.length - 1 ? 'Tout le monde a vu son mot' : 'J’ai vu mon mot — suivant'}　→</button></section>`);
     const box = $('#revealBox'); let held = false, seen = false;
-    const reveal = e => { e.preventDefault(); held = true; seen = true; box.classList.add('ready'); box.innerHTML = `<div class="reveal-content"><div class="reveal-role">${p.role === 'undercover' ? 'VOTRE RÔLE · UNDERCOVER' : 'VOTRE MOT SECRET'}</div><div class="reveal-word">${p.role === 'undercover' ? escapeHtml(state.undercoverWord) : escapeHtml(p.word)}</div><div class="symbol">${p.role === 'undercover' ? 'INDICE SECRET' : '✳'}</div></div>`; };
+    const reveal = e => { e.preventDefault(); held = true; seen = true; box.classList.add('ready'); box.innerHTML = `<div class="reveal-content"><div class="reveal-role">${p.role === 'undercover' ? 'VOTRE INDICE · UNDERCOVER' : 'VOTRE MOT SECRET'}</div><div class="reveal-word">${p.role === 'undercover' ? escapeHtml(state.undercoverHint || 'mot apparenté') : escapeHtml(p.word)}</div><div class="symbol">${p.role === 'undercover' ? 'INDICE SECRET' : '✳'}</div></div>`; };
     const hide = () => { if (!held) return; held = false; box.classList.remove('ready'); box.innerHTML = '<div class="reveal-content"><div class="reveal-prompt">MAINTENEZ POUR DÉCOUVRIR</div><div class="symbol">◉</div></div>'; $('#nextPlayer').disabled = false; };
     box.addEventListener('pointerdown', reveal); box.addEventListener('pointerup', hide); box.addEventListener('pointerleave', hide); box.addEventListener('pointercancel', hide);
     box.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') reveal(e); }); box.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') hide(); });
@@ -96,6 +103,7 @@
         difficulty: state.difficulty,
         civilianWord: state.civilianWord,
         undercoverWord: state.undercoverWord,
+        undercoverHint: state.undercoverHint,
         player: i,
         playersCount: state.players.length,
         name: p.name,
@@ -128,9 +136,9 @@
   function showPrivateLinkCard(data) {
     if (!data || data.protocol !== cfg.linkProtocol || !Number.isInteger(data.player) || typeof data.name !== 'string') return;
     const isUndercover = data.role === 'undercover';
-    state.theme = data.theme; state.difficulty = data.difficulty; state.civilianWord = data.civilianWord; state.undercoverWord = data.undercoverWord;
+    state.theme = data.theme; state.difficulty = data.difficulty; state.civilianWord = data.civilianWord; state.undercoverWord = data.undercoverWord; state.undercoverHint = data.undercoverHint;
     state.phase = 'private';
-    showGame(`${gameTop('VOTRE CARTE PRIVÉE')}<section class="game-panel"><div class="game-kicker">JOUEUR • ${data.player + 1}${data.playersCount ? ` SUR ${data.playersCount}` : ''}</div><div class="game-title">Bonjour, ${escapeHtml(data.name)}.</div><p class="game-subtitle">Les autres ne doivent pas voir votre écran.</p><div class="reveal-box ready" style="cursor:default"><div class="reveal-content"><div class="reveal-role">${isUndercover ? 'VOTRE RÔLE · UNDERCOVER' : 'VOTRE MOT SECRET'}</div><div class="reveal-word">${isUndercover ? escapeHtml(data.undercoverWord) : escapeHtml(data.word)}</div><div class="symbol">${isUndercover ? 'INDICE SECRET' : '✳'}</div></div></div><div class="notice">${isUndercover ? 'Votre mot d’indice est votre mot undercover. Ne révélez pas votre rôle.' : 'Retenez votre mot secret puis fermez cet écran.'} Les informations sont encodées dans le lien, pas chiffrées.</div><button class="secondary-button" id="closePrivate">Masquer mon rôle</button></section>`);
+    showGame(`${gameTop('VOTRE CARTE PRIVÉE')}<section class="game-panel"><div class="game-kicker">JOUEUR • ${data.player + 1}${data.playersCount ? ` SUR ${data.playersCount}` : ''}</div><div class="game-title">Bonjour, ${escapeHtml(data.name)}.</div><p class="game-subtitle">Les autres ne doivent pas voir votre écran.</p><div class="reveal-box ready" style="cursor:default"><div class="reveal-content"><div class="reveal-role">${isUndercover ? 'VOTRE INDICE · UNDERCOVER' : 'VOTRE MOT SECRET'}</div><div class="reveal-word">${isUndercover ? escapeHtml(data.undercoverHint || 'mot apparenté') : escapeHtml(data.word)}</div><div class="symbol">${isUndercover ? 'INDICE SECRET' : '✳'}</div></div></div><div class="notice">${isUndercover ? 'Cet indice décrit la famille ou le lien commun avec votre mot undercover. Ne révélez pas votre rôle.' : 'Retenez votre mot secret puis fermez cet écran.'} Les informations sont encodées dans le lien, pas chiffrées.</div><button class="secondary-button" id="closePrivate">Masquer mon rôle</button></section>`);
     $('#closePrivate').addEventListener('click', () => { history.replaceState(null, '', location.href.split('#')[0]); gameView.classList.add('hidden'); setupView.classList.remove('hidden'); toast('Votre rôle est masqué.'); });
   }
   function readSharedLink() {
@@ -181,10 +189,32 @@
     clearTimers(); state.phase = 'results';
     const voted = state.vote === '' ? null : state.players[Number(state.vote)];
     const suspects = state.players.filter(p => p.role === 'undercover');
-    showGame(`${gameTop('FIN DE MANCHE')}<section class="game-panel"><div class="game-kicker">LES MASQUES TOMBENT</div><div class="game-title">${voted ? (voted.role === 'undercover' ? 'Bien démasqué !' : 'Mauvaise piste…') : 'La vérité éclate.'}</div><p class="game-subtitle">${voted ? `${escapeHtml(voted.name)} a été choisi·e par le groupe.` : 'Vous avez choisi de ne pas voter.'}</p><div class="result-word">Mot des civils : ${escapeHtml(state.civilianWord)}</div><p class="game-subtitle">Les undercover avaient le mot « ${escapeHtml(state.undercoverWord)} ».</p><ul class="result-list">${state.players.map(p => `<li><span>${escapeHtml(p.name)}</span><span class="role-chip ${p.role === 'civil' ? 'civil' : ''}">${p.role === 'undercover' ? 'UNDERCOVER' : 'CIVIL'}</span></li>`).join('')}</ul><p class="alert-note">${suspects.length} undercover${suspects.length > 1 ? 's' : ''} dans la partie.</p><div class="button-row"><button class="secondary-button" id="backSetup">← Modifier les réglages</button><button class="primary-button" id="playAgain">Rejouer　↗</button></div></section>`);
+    showGame(`${gameTop(`TOUR ${state.round} / ${state.maxRounds} · FIN DE MANCHE`)}<section class="game-panel"><div class="game-kicker">LES MASQUES TOMBENT</div><div class="game-title">${voted ? (voted.role === 'undercover' ? 'Bien démasqué !' : 'Mauvaise piste…') : 'La vérité éclate.'}</div><p class="game-subtitle">${voted ? `${escapeHtml(voted.name)} a été choisi·e par le groupe.` : 'Vous avez choisi de ne pas voter.'}</p><div class="result-word">Mot des civils : ${escapeHtml(state.civilianWord)}</div><p class="game-subtitle">Les undercover avaient le mot « ${escapeHtml(state.undercoverWord)} ».<br><small>Indice : ${escapeHtml(state.undercoverHint)}</small></p><ul class="result-list">${state.players.map(p => `<li><span>${escapeHtml(p.name)}</span><span class="role-chip ${p.role === 'civil' ? 'civil' : ''}">${p.role === 'undercover' ? 'UNDERCOVER' : 'CIVIL'}</span></li>`).join('')}</ul><p class="alert-note">${suspects.length} undercover${suspects.length > 1 ? 's' : ''} dans la partie.</p><div class="button-row"><button class="secondary-button" id="backSetup">← Modifier les réglages</button>${state.round < state.maxRounds ? '<button class="primary-button" id="nextRound">Tour suivant　↗</button>' : '<button class="primary-button" id="playAgain">Rejouer　↗</button>'}</div></section>`);
     $('#backSetup').addEventListener('click', backToSetup);
-    $('#playAgain').addEventListener('click', () => { backToSetup(); setTimeout(() => $('#setupForm').requestSubmit(), 0); });
+    if ($('#playAgain')) $('#playAgain').addEventListener('click', () => { backToSetup(); setTimeout(() => $('#setupForm').requestSubmit(), 0); });
+    if ($('#nextRound')) $('#nextRound').addEventListener('click', startNextRound);
     $('.game-back').addEventListener('click', confirmBack);
+  }
+  function startNextRound() {
+    state.round++;
+    let theme = state.themeChoice === '__random__' ? pick(Object.keys(words)) : state.themeChoice;
+    const available = words[theme]?.[state.difficulty] || [];
+    if (!available.length) { toast('Aucun mot disponible pour le prochain tour.'); backToSetup(); return; }
+    state.theme = theme;
+    const pair = choosePair(state.difficulty, available);
+    state.players.forEach(p => { p.role = 'civil'; p.word = pair.civilian; });
+    state.undercover = shuffle(state.players).slice(0, Number($('#undercoverCount')?.value || state.undercover.length));
+    state.undercover.forEach(p => { p.role = 'undercover'; p.word = pair.undercover; });
+    state.civilianWord = pair.civilian;
+    state.undercoverWord = pair.undercover;
+    state.undercoverHint = pair.hint;
+    state.revealIndex = 0;
+    state.phase = state.mode === 'shared' ? 'pass' : 'links';
+    state.vote = '';
+    state.roundSeconds = clampMinutes($('#roundMinutes')?.value, state.roundSeconds / 60 || 8) * 60;
+    state.debateSeconds = clampMinutes($('#debateMinutes')?.value, state.debateSeconds / 60 || 3) * 60;
+    clearTimers();
+    if (state.mode === 'shared') renderPassScreen(); else renderLinksScreen();
   }
   function backToSetup() { clearTimers(); gameView.classList.add('hidden'); setupView.classList.remove('hidden'); state.phase = 'setup'; history.replaceState(null, '', location.href.split('#')[0]); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   function confirmBack() { if (confirm('Revenir aux réglages ? La partie en cours sera abandonnée.')) backToSetup(); }
