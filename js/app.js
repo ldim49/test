@@ -80,7 +80,7 @@
     const p = state.players[state.revealIndex];
     showGame(`${gameTop('DISTRIBUTION DES RÔLES')}<section class="game-panel"><div class="game-kicker">JOUEUR ${state.revealIndex + 1} SUR ${state.players.length}</div><div class="pass-icon">↻</div><div class="game-title">Passez le téléphone</div><div class="game-subtitle">à la personne suivante, sans regarder l'écran.</div><div class="pass-name">${escapeHtml(p.name)}</div><div class="reveal-box" id="revealBox" role="button" tabindex="0" aria-label="Maintenir appuyé pour voir son rôle"><div class="reveal-content"><div class="reveal-prompt">MAINTENEZ POUR DÉCOUVRIR</div><div class="symbol">◉</div></div></div><p class="alert-note">Appuyez sans relâcher sur la carte pour révéler votre mot. Relâchez pour le masquer.</p><div class="progress-dots">${state.players.map((_, i) => `<i class="${i < state.revealIndex ? 'done' : ''}"></i>`).join('')}</div><button class="secondary-button" id="nextPlayer">${state.revealIndex === state.players.length - 1 ? 'Tout le monde a vu son mot' : 'J’ai vu mon mot — suivant'}　→</button></section>`);
     const box = $('#revealBox'); let held = false, seen = false;
-    const reveal = e => { e.preventDefault(); held = true; seen = true; box.classList.add('ready'); box.innerHTML = `<div class="reveal-content"><div class="reveal-role">${p.role === 'undercover' ? 'VOTRE RÔLE' : 'VOTRE MOT SECRET'}</div><div class="reveal-word">${p.role === 'undercover' ? 'UNDERCOVER' : escapeHtml(p.word)}</div>${p.role === 'undercover' ? '<div class="symbol">◉</div>' : ''}</div>`; };
+    const reveal = e => { e.preventDefault(); held = true; seen = true; box.classList.add('ready'); box.innerHTML = `<div class="reveal-content"><div class="reveal-role">${p.role === 'undercover' ? 'VOTRE RÔLE · UNDERCOVER' : 'VOTRE MOT SECRET'}</div><div class="reveal-word">${p.role === 'undercover' ? escapeHtml(state.undercoverWord) : escapeHtml(p.word)}</div><div class="symbol">${p.role === 'undercover' ? 'INDICE SECRET' : '✳'}</div></div>`; };
     const hide = () => { if (!held) return; held = false; box.classList.remove('ready'); box.innerHTML = '<div class="reveal-content"><div class="reveal-prompt">MAINTENEZ POUR DÉCOUVRIR</div><div class="symbol">◉</div></div>'; $('#nextPlayer').disabled = false; };
     box.addEventListener('pointerdown', reveal); box.addEventListener('pointerup', hide); box.addEventListener('pointerleave', hide); box.addEventListener('pointercancel', hide);
     box.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') reveal(e); }); box.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') hide(); });
@@ -88,27 +88,57 @@
     $('.game-back').addEventListener('click', confirmBack);
   }
   function renderLinksScreen() {
-    const safePayload = { protocol: cfg.linkProtocol, theme: state.theme, difficulty: state.difficulty, civilianWord: state.civilianWord, undercoverWord: state.undercoverWord, players: state.players.map(p => ({ name: p.name, role: p.role, word: p.word })) };
-    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(safePayload))));
     const base = location.href.split('#')[0];
-    const links = state.players.map((p, i) => ({ ...p, url: `${base}#${cfg.linkProtocol}=${encoded}&player=${i}` }));
-    showGame(`${gameTop('DISTRIBUTION DES RÔLES')}<section class="game-panel"><div class="game-kicker">UN LIEN PRIVÉ PAR JOUEUR</div><div class="game-title">Chacun son écran.</div><p class="game-subtitle">Copiez le lien correspondant et envoyez-le à chaque personne.</p><div class="notice"><strong>À savoir :</strong> cette version autonome ne dispose pas de serveur central. Chaque joueur ouvre son lien sur un appareil qui a accès au même fichier/site. Les rôles sont intégrés au lien, pas chiffrés : partagez chaque lien uniquement avec son destinataire.</div><div id="playerLinks">${links.map((p, i) => `<div class="link-card"><div class="link-player">${escapeHtml(p.name)}</div><div class="link-box" id="url-${i}">${escapeHtml(p.url)}</div><button class="secondary-button copy-link" data-index="${i}">Copier le lien de ${escapeHtml(p.name)}</button></div>`).join('')}</div><p class="alert-note">Pas de QR code dans cette édition hors-ligne : utilisez le bouton « Copier le lien » puis collez-le dans un message, ou affichez l'URL pour que le joueur la saisisse. Un QR exige un encodeur embarqué ; aucun service externe n'est appelé.</p><div class="button-row"><button class="secondary-button" id="backSetup">← Modifier la partie</button><button class="primary-button" id="hostContinue">Continuer sur cet appareil　↗</button></div></section>`);
+    const links = state.players.map((p, i) => {
+      const payload = {
+        protocol: cfg.linkProtocol,
+        theme: state.theme,
+        difficulty: state.difficulty,
+        civilianWord: state.civilianWord,
+        undercoverWord: state.undercoverWord,
+        player: i,
+        playersCount: state.players.length,
+        name: p.name,
+        role: p.role,
+        word: p.word
+      };
+      return { ...p, url: `${base}#${cfg.linkProtocol}=${encodeSharedPayload(payload)}&player=${i}` };
+    });
+    const inaccessibleHost = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+    const localFileWarning = location.protocol === 'file:' || inaccessibleHost
+      ? `<div class="notice"><strong>Multi-appareils :</strong> ${location.protocol === 'file:' ? 'Les liens <code>file://</code>' : 'Les adresses <code>localhost</code> ou <code>127.0.0.1</code>'} ne peuvent pas être ouverts correctement sur les autres appareils. Lancez un serveur accessible sur votre réseau Wi-Fi, puis ouvrez la partie avec son adresse LAN (exemple : <code>http://192.168.1.20:8000</code>).</div>`
+      : '';
+    showGame(`${gameTop('DISTRIBUTION DES RÔLES')}<section class="game-panel"><div class="game-kicker">QR CODE OU LIEN PRIVÉ PAR JOUEUR</div><div class="game-title">Chacun son écran.</div><p class="game-subtitle">Faites scanner le QR ou envoyez le lien correspondant à chaque personne.</p>${localFileWarning}<div class="notice"><strong>À savoir :</strong> les rôles restent encodés dans chaque lien, sans serveur ni chiffrement. Partagez chaque QR uniquement avec son destinataire.</div><div id="playerLinks">${links.map((p, i) => `<div class="link-card"><div class="link-player">${escapeHtml(p.name)}</div><div class="qr-code" id="qr-${i}" aria-label="QR code pour ${escapeHtml(p.name)}"></div><div class="link-box" id="url-${i}">${escapeHtml(p.url)}</div><button class="secondary-button copy-link" data-index="${i}">Copier le lien de ${escapeHtml(p.name)}</button></div>`).join('')}</div><p class="alert-note">Le QR est généré localement dans le navigateur. Aucun service externe n’est appelé. Pour plusieurs appareils, chaque appareil doit joindre la même adresse hébergée sur le réseau.</p><div class="button-row"><button class="secondary-button" id="backSetup">← Modifier la partie</button><button class="primary-button" id="hostContinue">Continuer sur cet appareil　↗</button></div></section>`);
     document.querySelectorAll('.copy-link').forEach(button => button.addEventListener('click', () => copyText(links[Number(button.dataset.index)].url)));
+    if (window.QRCode) {
+      links.forEach((p, i) => new QRCode($(`#qr-${i}`), {
+        text: p.url,
+        width: 180,
+        height: 180,
+        colorDark: '#29251F',
+        colorLight: '#FAF6EF',
+        correctLevel: QRCode.CorrectLevel.M
+      }));
+    } else {
+      toast('Générateur QR indisponible : utilisez les liens.');
+    }
     $('#backSetup').addEventListener('click', confirmBack);
     $('#hostContinue').addEventListener('click', () => { state.revealIndex = 0; renderPassScreen(); });
   }
   function showPrivateLinkCard(data) {
-    if (!data || data.protocol !== cfg.linkProtocol || !Number.isInteger(data.player) || !data.players?.[data.player]) return;
-    const player = data.players[data.player];
+    if (!data || data.protocol !== cfg.linkProtocol || !Number.isInteger(data.player) || typeof data.name !== 'string') return;
+    const isUndercover = data.role === 'undercover';
     state.theme = data.theme; state.difficulty = data.difficulty; state.civilianWord = data.civilianWord; state.undercoverWord = data.undercoverWord;
-    state.players = data.players.map((p, i) => ({ ...p, id: i })); state.phase = 'private';
-    showGame(`${gameTop('VOTRE CARTE PRIVÉE')}<section class="game-panel"><div class="game-kicker">JOUEUR • ${data.player + 1}</div><div class="game-title">Bonjour, ${escapeHtml(player.name)}.</div><p class="game-subtitle">Les autres ne doivent pas voir votre écran.</p><div class="reveal-box ready" style="cursor:default"><div class="reveal-content"><div class="reveal-role">${player.role === 'undercover' ? 'VOTRE RÔLE' : 'VOTRE MOT SECRET'}</div><div class="reveal-word">${player.role === 'undercover' ? 'UNDERCOVER' : escapeHtml(player.word)}</div><div class="symbol">${player.role === 'undercover' ? '◉' : '✳'}</div></div></div><div class="notice">Retenez votre information puis fermez cet écran. Les rôles révélés ici ne sont pas chiffrés — les joueurs techniquement curieux pourraient inspecter le lien.</div><button class="secondary-button" id="closePrivate">Masquer mon rôle</button></section>`);
+    state.phase = 'private';
+    showGame(`${gameTop('VOTRE CARTE PRIVÉE')}<section class="game-panel"><div class="game-kicker">JOUEUR • ${data.player + 1}${data.playersCount ? ` SUR ${data.playersCount}` : ''}</div><div class="game-title">Bonjour, ${escapeHtml(data.name)}.</div><p class="game-subtitle">Les autres ne doivent pas voir votre écran.</p><div class="reveal-box ready" style="cursor:default"><div class="reveal-content"><div class="reveal-role">${isUndercover ? 'VOTRE RÔLE · UNDERCOVER' : 'VOTRE MOT SECRET'}</div><div class="reveal-word">${isUndercover ? escapeHtml(data.undercoverWord) : escapeHtml(data.word)}</div><div class="symbol">${isUndercover ? 'INDICE SECRET' : '✳'}</div></div></div><div class="notice">${isUndercover ? 'Votre mot d’indice est votre mot undercover. Ne révélez pas votre rôle.' : 'Retenez votre mot secret puis fermez cet écran.'} Les informations sont encodées dans le lien, pas chiffrées.</div><button class="secondary-button" id="closePrivate">Masquer mon rôle</button></section>`);
     $('#closePrivate').addEventListener('click', () => { history.replaceState(null, '', location.href.split('#')[0]); gameView.classList.add('hidden'); setupView.classList.remove('hidden'); toast('Votre rôle est masqué.'); });
   }
   function readSharedLink() {
-    const hash = location.hash; const match = hash.match(/^#undercover-v1=([^&]+)&player=(\d+)$/);
+    const hash = location.hash;
+    const escapedProtocol = cfg.linkProtocol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = hash.match(new RegExp(`^#${escapedProtocol}=([^&]+)&player=(\\d+)$`));
     if (!match) return null;
-    try { const data = JSON.parse(decodeURIComponent(escape(atob(match[1])))); return { ...data, player: Number(match[2]) }; } catch { return null; }
+    try { return { ...decodeSharedPayload(match[1]), player: Number(match[2]) }; } catch { return null; }
   }
   function renderDebate() {
     state.phase = 'debate'; state.roundSeconds = clampMinutes($('#roundMinutes')?.value, state.roundSeconds / 60 || 8) * 60;
@@ -140,7 +170,9 @@
   function renderVote() {
     clearTimers(); state.phase = 'vote'; state.vote = '';
     showGame(`${gameTop('VOTE')}<section class="game-panel"><div class="game-kicker">LE MOMENT DE VÉRITÉ</div><div class="game-title">Qui éliminez-vous ?</div><p class="game-subtitle">Votez ensemble pour la personne que vous soupçonnez.</p><div class="vote-list">${state.players.map(p => `<label class="vote-option"><input type="radio" name="vote" value="${p.id}"><b>${escapeHtml(p.name)}</b><small>${state.undercover.some(u => u.id === p.id) ? '' : ''}</small></label>`).join('')}</div><p class="alert-note">Le vote est collectif : choisissez une personne, puis découvrez les identités.</p><div class="button-row"><button class="secondary-button" id="skipVote">Ne pas voter</button><button class="primary-button" id="submitVote">Révéler les rôles　↗</button></div></section>`);
-    $('input[name="vote"]', gameView).addEventListener('change', e => state.vote = e.target.value);
+    document.querySelectorAll('input[name="vote"]', gameView).forEach(input => {
+      input.addEventListener('change', e => { state.vote = e.target.value; });
+    });
     $('#submitVote').addEventListener('click', () => { if (state.vote === '') { toast('Choisissez une personne ou passez le vote.'); return; } renderResults(); });
     $('#skipVote').addEventListener('click', renderResults);
     $('.game-back').addEventListener('click', confirmBack);
@@ -165,6 +197,19 @@
   }
   function playAlert() { try { const Ctx = window.AudioContext || window.webkitAudioContext; if (!Ctx) return; const ctx = new Ctx(); [660, 880, 660].forEach((hz, i) => { const osc = ctx.createOscillator(), gain = ctx.createGain(); osc.frequency.value = hz; osc.type = 'sine'; gain.gain.setValueAtTime(.0001, ctx.currentTime + i * .16); gain.gain.exponentialRampToValueAtTime(.12, ctx.currentTime + i * .16 + .02); gain.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + i * .16 + .13); osc.connect(gain); gain.connect(ctx.destination); osc.start(ctx.currentTime + i * .16); osc.stop(ctx.currentTime + i * .16 + .14); }); setTimeout(() => ctx.close(), 900); } catch { /* audio indisponible : l'alerte visuelle reste active */ } }
   function toggleSound() { state.sound = !state.sound; $('#soundToggle').textContent = state.sound ? '♫' : '♪'; $('#soundToggle').setAttribute('aria-label', state.sound ? 'Désactiver le son' : 'Activer le son'); toast(state.sound ? 'Son activé.' : 'Son désactivé.'); }
+  function encodeSharedPayload(payload) {
+    const bytes = new TextEncoder().encode(JSON.stringify(payload));
+    let binary = '';
+    bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  }
+  function decodeSharedPayload(encoded) {
+    const base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+    return JSON.parse(new TextDecoder('utf-8').decode(bytes));
+  }
   async function copyText(text) { try { await navigator.clipboard.writeText(text); toast('Lien copié dans le presse-papiers.'); } catch { const area = document.createElement('textarea'); area.value = text; area.style.position = 'fixed'; area.style.opacity = '0'; document.body.append(area); area.select(); try { document.execCommand('copy'); toast('Lien copié dans le presse-papiers.'); } catch { toast('Copie impossible : sélectionnez et copiez l’URL affichée.'); } area.remove(); } }
   function toast(message) { const el = $('#toast'); el.textContent = message; el.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2600); }
   function shuffle(a) { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; }

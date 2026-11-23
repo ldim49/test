@@ -20,7 +20,7 @@ Puis ouvrez `http://localhost:8000`.
 ## Modes de distribution
 
 - **Téléphone partagé** : les rôles sont révélés un à un par appui maintenu, puis masqués au relâchement. C'est le mode recommandé pour jouer immédiatement hors-ligne.
-- **Un téléphone chacun** : le jeu prépare une URL privée par participant, avec bouton de copie et URL de secours affichée. Cette édition n'intègre pas de générateur QR. Il n'y a pas de serveur de synchronisation : pour le jeu en équipe sur plusieurs appareils, les liens doivent être envoyés manuellement et chaque appareil doit accéder à la même installation/page. Les minuteries et votes restent gérés sur l'appareil hôte ; l'écran individuel ne synchronise pas le jeu.
+- **Un téléphone chacun** : le jeu prépare un QR code et une URL privée par participant. Chaque QR est généré localement avec la bibliothèque embarquée `js/qrcode.min.js`, sans appel externe. Pour plusieurs appareils, chaque participant doit pouvoir accéder à la même adresse HTTP du dossier. Ouvrez le dossier avec un serveur local accessible sur le réseau pour remplacer les liens `file://`. Il n'y a pas de serveur de synchronisation : les minuteries et votes restent gérés sur l'appareil hôte ; l'écran individuel ne synchronise pas le jeu.
 
 **Confidentialité :** le mode multi-appareil autonome encode les rôles et les mots dans le fragment d'URL en clair (base64 n'est pas du chiffrement). Une personne qui inspecte le lien ou sa page peut voir l'information. Partagez seulement chaque lien avec son destinataire. Pour une vraie confidentialité/synchronisation à distance, il faut ajouter un serveur ou un protocole de partage sécurisé.
 
